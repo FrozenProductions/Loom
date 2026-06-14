@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var startAtLoginState = StartAtLogin.state
     @State private var ignoredAppBundleIDs = IgnoredAppsStore.bundleIDArray
     @State private var selectedBundleIdentifier: String?
+    @StateObject private var installedApps = InstalledAppsProvider()
 
     private var ignoredApps: [IgnoredApp] {
         ignoredAppBundleIDs
@@ -20,14 +21,9 @@ struct SettingsView: View {
 
     private var availableApps: [IgnoredApp] {
         let ignored = Set(ignoredAppBundleIDs)
-        var seen: Set<String> = []
-        return NSWorkspace.shared.runningApplications
-            .compactMap { app -> IgnoredApp? in
-                guard let id = app.bundleIdentifier, !ignored.contains(id) else { return nil }
-                return IgnoredApp(bundleIdentifier: id, name: app.localizedName ?? id)
-            }
-            .filter { seen.insert($0.bundleIdentifier).inserted }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return installedApps.apps
+            .filter { !ignored.contains($0.bundleIdentifier) }
+            .map { IgnoredApp(bundleIdentifier: $0.bundleIdentifier, name: $0.name) }
     }
 
     private var startAtLoginDescription: String {
@@ -183,7 +179,7 @@ struct SettingsView: View {
 
                     HStack(spacing: 10) {
                         Picker("Application", selection: $selectedBundleIdentifier) {
-                            Text(availableApps.isEmpty ? "No running apps available" : "Choose App")
+                            Text(availableApps.isEmpty ? "No apps found" : "Choose App")
                                 .tag(String?.none)
                             ForEach(availableApps) { app in
                                 Text(app.name).tag(Optional(app.bundleIdentifier))

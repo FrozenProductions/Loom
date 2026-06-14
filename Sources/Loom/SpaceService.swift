@@ -304,6 +304,7 @@ private final class SpaceAppResolver {
             guard let processID = intValue(window[kCGWindowOwnerPID as String]) else { continue }
             guard let app = NSRunningApplication(processIdentifier: pid_t(processID)) else { continue }
             guard let bundleIdentifier = app.bundleIdentifier else { continue }
+            guard isUserApplication(app: app) else { continue }
 
             appsByWindowID[windowID] = SpaceApp(
                 bundleIdentifier: bundleIdentifier,
@@ -331,6 +332,11 @@ private final class SpaceAppResolver {
         }
 
         return apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private func isUserApplication(app: NSRunningApplication) -> Bool {
+        guard let appPath = app.bundleURL?.path else { return false }
+        return AppLocation.isInApplicationsFolder(appPath)
     }
 
     private func uint32Value(_ value: Any?) -> UInt32? {

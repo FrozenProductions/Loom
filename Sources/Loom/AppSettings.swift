@@ -232,3 +232,13 @@ enum StartAtLogin {
         NSWorkspace.shared.open(url)
     }
 }
+
+enum AppLocation {
+    static let systemApplicationsPath = "/Applications"
+    static var userApplicationsPath: String { NSHomeDirectory() + "/Applications" }
+
+    static func isInApplicationsFolder(_ path: String) -> Bool {
+        path == systemApplicationsPath || path.hasPrefix(systemApplicationsPath + "/")
+            || path == userApplicationsPath || path.hasPrefix(userApplicationsPath + "/")
+    }
+}
