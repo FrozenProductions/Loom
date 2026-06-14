@@ -93,7 +93,7 @@ private struct SpacePill: View {
         if showAppIcons, !space.apps.isEmpty {
             HStack(spacing: -dockSize.iconOverlap) {
                 ForEach(Array(space.apps.prefix(4))) { app in
-                    AppIconView(app: app, isCurrent: space.isCurrent)
+                    AppIconView(app: app)
                         .frame(width: dockSize.iconSize, height: dockSize.iconSize)
                 }
             }
@@ -160,16 +160,11 @@ private struct SpacePill: View {
 
 private struct AppIconView: View {
     let app: SpaceApp
-    let isCurrent: Bool
 
     var body: some View {
         Image(nsImage: icon)
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .background(
-                Circle()
-                    .fill(isCurrent ? Color.white.opacity(0.72) : Color.black.opacity(0.18))
-            )
     }
 
     private var icon: NSImage {
