@@ -8,7 +8,10 @@ enum LoomDefaults {
     static let dockPositionKey = "dockPosition"
     static let dockSizeKey = "dockSize"
     static let ignoredAppBundleIDsKey = "ignoredAppBundleIDs"
+    static let activationDelayKey = "activationDelay"
     static let startAtLoginKey = "startAtLogin"
+    static let defaultActivationDelay: TimeInterval = 0.0
+    static let maximumActivationDelay: TimeInterval = 0.5
     static let didSeedDefaultIgnoredAppsKey = "didSeedDefaultIgnoredApps"
     static let dockBundleID = "com.apple.dock"
 }

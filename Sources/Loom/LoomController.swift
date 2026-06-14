@@ -7,6 +7,7 @@ final class LoomController {
     private let overlayController = SpaceOverlayPanelController()
     private var keyboardMonitor: ControlKeyMonitor?
     private var refreshTimer: Timer?
+    private var activationDelayTimer: Timer?
     private var spaceChangeObserver: NSObjectProtocol?
     private var isOverlayVisible = false
 
@@ -14,10 +15,11 @@ final class LoomController {
         keyboardMonitor = ControlKeyMonitor { [weak self] isPressed in
             guard let self else { return }
             if isPressed {
-                showOverlayAndStartRefreshing()
+                scheduleOverlayPresentation()
                 return
             }
 
+            cancelOverlayPresentation()
             hideOverlayAndStopRefreshing()
         }
 
@@ -53,7 +55,31 @@ final class LoomController {
         isOverlayVisible = false
         refreshTimer?.invalidate()
         refreshTimer = nil
+        activationDelayTimer?.invalidate()
+        activationDelayTimer = nil
         overlayController.hide()
+    }
+
+    private func scheduleOverlayPresentation() {
+        let delay = UserDefaults.standard.double(forKey: LoomDefaults.activationDelayKey)
+        guard delay > 0.003 else {
+            showOverlayAndStartRefreshing()
+            return
+        }
+
+        activationDelayTimer?.invalidate()
+        activationDelayTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.activationDelayTimer = nil
+                self.showOverlayAndStartRefreshing()
+            }
+        }
+    }
+
+    private func cancelOverlayPresentation() {
+        activationDelayTimer?.invalidate()
+        activationDelayTimer = nil
     }
 
     private func refreshOverlay() {

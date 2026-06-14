@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage(LoomDefaults.showAppIconsKey) private var showAppIcons = false
     @AppStorage(LoomDefaults.dockPositionKey) private var dockPosition = DockPosition.bottomCenter.rawValue
     @AppStorage(LoomDefaults.dockSizeKey) private var dockSize = DockSize.medium.rawValue
+    @AppStorage(LoomDefaults.activationDelayKey) private var activationDelay = LoomDefaults.defaultActivationDelay
     @AppStorage(LoomDefaults.startAtLoginKey) private var startAtLogin = false
     @State private var startAtLoginState = StartAtLogin.state
     @State private var ignoredAppBundleIDs = IgnoredAppsStore.bundleIDArray
@@ -119,6 +120,28 @@ struct SettingsView: View {
                     .labelsHidden()
                     .pickerStyle(.segmented)
                     .frame(minWidth: 190)
+                }
+                .listRowBackground(Rectangle().fill(.ultraThinMaterial))
+
+                HStack(alignment: .center, spacing: 16) {
+                    SettingsRowLabel(
+                        title: "Activation delay",
+                        description: "Wait briefly before showing the overlay when Control is held."
+                    )
+                    Spacer()
+                    HStack(spacing: 12) {
+                        Slider(
+                            value: $activationDelay,
+                            in: 0...LoomDefaults.maximumActivationDelay,
+                            step: 0.05
+                        )
+                        .frame(width: 180)
+
+                        Text("\(Int(activationDelay * 1000)) ms")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 46, alignment: .trailing)
+                    }
                 }
                 .listRowBackground(Rectangle().fill(.ultraThinMaterial))
 
