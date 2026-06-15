@@ -97,7 +97,7 @@ final class SpaceOverlayPanelController {
 
     private func pillWidth(for space: DesktopSpace, size: DockSize) -> CGFloat {
         guard UserDefaults.standard.bool(forKey: LoomDefaults.showAppIconsKey), !space.apps.isEmpty else {
-            return numberPillWidth(for: size)
+            return numberPillWidth(for: size) + size.pillHorizontalPadding * 2
         }
 
         let visibleIconCount = CGFloat(min(space.apps.count, SpaceOverlayMetrics.maximumVisibleIcons))
