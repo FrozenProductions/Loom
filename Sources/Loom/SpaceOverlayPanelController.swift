@@ -115,19 +115,14 @@ final class SpaceOverlayPanelController {
     }
 
     private func horizontalPadding(for size: DockSize) -> CGFloat {
-        return size.horizontalPanelPadding
+        size.horizontalPanelPadding
     }
 
     private func verticalPadding(for size: DockSize) -> CGFloat {
-        return size.horizontalPanelPadding
+        size.horizontalPanelPadding
     }
 
     private func itemSpacing(for size: DockSize) -> CGFloat {
         size.horizontalItemSpacing
     }
-}
-
-private enum SpaceOverlayMetrics {
-    static let edgeMargin: CGFloat = 28
-    static let maximumVisibleIcons = 4
 }
