@@ -10,9 +10,15 @@ let package = Package(
     products: [
         .executable(name: "Loom", targets: ["Loom"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/mrkai77/Luminare", from: "0.2.0")
+    ],
     targets: [
         .executableTarget(
             name: "Loom",
+            dependencies: [
+                .product(name: "Luminare", package: "Luminare")
+            ],
             resources: [
                 .process("Resources")
             ],

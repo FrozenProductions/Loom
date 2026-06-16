@@ -1,4 +1,5 @@
 import AppKit
+import Luminare
 import SwiftUI
 
 @MainActor
@@ -15,18 +16,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private init() {
-        let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: CGSize(width: 600, height: 500)),
-            styleMask: [
-                .titled,
-                .closable,
-                .resizable,
-                .miniaturizable,
-                .fullSizeContentView
-            ],
-            backing: .buffered,
-            defer: false
-        )
+        let window = LuminareWindow {
+            SettingsView()
+        }
 
         super.init(window: window)
         configureWindow()
@@ -58,14 +50,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         guard let window else { return }
 
         window.title = "Settings"
-        window.titleVisibility = .visible
-        window.titlebarAppearsTransparent = true
-        window.toolbarStyle = .automatic
-        window.isMovableByWindowBackground = true
         window.setFrameAutosaveName("LoomSettingsWindow")
-        window.minSize = NSSize(width: 520, height: 440)
-        window.center()
+        window.setContentSize(NSSize(width: 520, height: 620))
+        window.minSize = NSSize(width: 480, height: 480)
+        window.isMovableByWindowBackground = true
         window.delegate = self
-        window.contentViewController = NSHostingController(rootView: SettingsView())
     }
 }

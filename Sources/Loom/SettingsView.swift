@@ -1,30 +1,22 @@
 import AppKit
+import Luminare
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @AppStorage(LoomDefaults.showAppIconsKey) private var showAppIcons = false
-    @AppStorage(LoomDefaults.dockPositionKey) private var dockPosition = DockPosition.bottomCenter.rawValue
-    @AppStorage(LoomDefaults.dockSizeKey) private var dockSize = DockSize.medium.rawValue
-    @AppStorage(LoomDefaults.activationDelayKey) private var activationDelay = LoomDefaults.defaultActivationDelay
+    var body: some View {
+        LuminarePane {
+            GeneralSettingsSection()
+            OverlaySettingsSection()
+            ExclusionsSettingsSection()
+        }
+        .luminarePaneLayout(.stacked)
+    }
+}
+
+struct GeneralSettingsSection: View {
     @AppStorage(LoomDefaults.startAtLoginKey) private var startAtLogin = false
     @State private var startAtLoginState = StartAtLogin.state
-    @State private var ignoredAppBundleIDs = IgnoredAppsStore.bundleIDArray
-    @State private var selectedBundleIdentifier: String?
-    @StateObject private var installedApps = InstalledAppsProvider()
-
-    private var ignoredApps: [IgnoredApp] {
-        ignoredAppBundleIDs
-            .map { IgnoredApp(bundleIdentifier: $0) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
-    private var availableApps: [IgnoredApp] {
-        let ignored = Set(ignoredAppBundleIDs)
-        return installedApps.apps
-            .filter { !ignored.contains($0.bundleIdentifier) }
-            .map { IgnoredApp(bundleIdentifier: $0.bundleIdentifier, name: $0.name) }
-    }
 
     private var startAtLoginDescription: String {
         if StartAtLogin.isInApplicationsFolder {
@@ -45,182 +37,274 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section("General") {
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        SettingsRowLabel(
-                            title: "Start at login",
-                            description: startAtLoginDescription
-                        )
-                        if !startAtLoginStatusText.isEmpty {
-                            Text(startAtLoginStatusText)
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    Spacer()
-                    Toggle(isOn: $startAtLogin) { EmptyView() }
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                        .disabled(!StartAtLogin.isInApplicationsFolder)
-                }
-                .contentShape(.rect)
-                .onTapGesture {
-                    guard StartAtLogin.isInApplicationsFolder else { return }
-                    startAtLogin.toggle()
-                }
-                .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-                .onChange(of: startAtLogin) { _, newValue in
-                    let state = StartAtLogin.setEnabled(newValue)
-                    startAtLoginState = state
-                    if state == .requiresApproval {
-                        StartAtLogin.openLoginItemsSettings()
-                    }
-                }
-                .onAppear {
-                    startAtLoginState = StartAtLogin.state
+        LuminareSection {
+            LuminareToggle(isOn: $startAtLogin) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Start at login")
+                    Text(startAtLoginDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-
-            Section("Overlay") {
-                HStack(alignment: .center, spacing: 16) {
-                    SettingsRowLabel(
-                        title: "Screen edge",
-                        description: "Choose where the Spaces dock appears while Control is held."
-                    )
-                    Spacer()
-                    Picker("Position", selection: $dockPosition) {
-                        ForEach(DockPosition.allCases) { position in
-                            Text(position.title).tag(position.rawValue)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .frame(minWidth: 150)
-                }
-                .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-
-                HStack(alignment: .center, spacing: 16) {
-                    SettingsRowLabel(
-                        title: "Dock size",
-                        description: "Tune the overlay for compact, balanced, or larger displays."
-                    )
-                    Spacer()
-                    Picker("Size", selection: $dockSize) {
-                        ForEach(DockSize.allCases) { size in
-                            Text(size.title).tag(size.rawValue)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .frame(minWidth: 190)
-                }
-                .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-
-                HStack(alignment: .center, spacing: 16) {
-                    SettingsRowLabel(
-                        title: "Activation delay",
-                        description: "Wait briefly before showing the overlay when Control is held."
-                    )
-                    Spacer()
-                    HStack(spacing: 12) {
-                        Slider(
-                            value: $activationDelay,
-                            in: 0...LoomDefaults.maximumActivationDelay,
-                            step: 0.05
-                        )
-                        .frame(width: 180)
-
-                        Text("\(Int(activationDelay * 1000)) ms")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                            .frame(width: 46, alignment: .trailing)
-                    }
-                }
-                .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-
-                HStack(alignment: .center, spacing: 16) {
-                    SettingsRowLabel(
-                        title: "Show app icons",
-                        description: "Replace Space numbers with icons for apps detected on each Space."
-                    )
-                    Spacer()
-                    Toggle(isOn: $showAppIcons) { EmptyView() }
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                }
-                .contentShape(.rect)
-                .onTapGesture { showAppIcons.toggle() }
-                .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-
-                LabeledContent("Shortcut") {
-                    ShortcutBadge(title: "Hold Control")
-                }
-                .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-
-                if showAppIcons {
-                    SettingsInfoCallout(
-                        systemImage: "exclamationmark.triangle",
-                        title: "App icons may fall back to numbers",
-                        description: "Per-Space app icons use private macOS Spaces data. If macOS withholds window membership for a Space, Loom keeps the dock usable by showing the Space number."
-                    )
-                    .listRowBackground(Rectangle().fill(.ultraThinMaterial))
+            .disabled(!StartAtLogin.isInApplicationsFolder)
+            .onChange(of: startAtLogin) { _, newValue in
+                let state = StartAtLogin.setEnabled(newValue)
+                startAtLoginState = state
+                if state == .requiresApproval {
+                    StartAtLogin.openLoginItemsSettings()
                 }
             }
-
-            Section("App Exclusions") {
-                VStack(alignment: .leading, spacing: 10) {
-                    SettingsRowLabel(
-                        title: "Exclude an app",
-                        description: "Ignored apps are hidden from Loom icon detection, which keeps utility windows and background apps out of the overlay."
-                    )
-
-                    HStack(spacing: 10) {
-                        Picker("Application", selection: $selectedBundleIdentifier) {
-                            Text(availableApps.isEmpty ? "No apps found" : "Choose App")
-                                .tag(String?.none)
-                            ForEach(availableApps) { app in
-                                Text(app.name).tag(Optional(app.bundleIdentifier))
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Button {
-                            addSelectedApp()
-                        } label: {
-                            Label("Add", systemImage: "plus")
-                        }
-                        .controlSize(.small)
-                        .disabled(selectedBundleIdentifier == nil)
-                    }
-                }
-                .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-
-                if ignoredApps.isEmpty {
-                    SettingsEmptyState(
-                        systemImage: "app.badge",
-                        title: "No ignored apps",
-                        description: "Apps you add here will stop appearing as Space icons."
-                    )
-                    .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-                } else {
-                    ForEach(ignoredApps) { app in
-                        IgnoredAppRow(app: app) {
-                            remove(app)
-                        }
-                        .listRowBackground(Rectangle().fill(.ultraThinMaterial))
-                    }
-                }
+        } header: {
+            Text("General")
+        } footer: {
+            if !startAtLoginStatusText.isEmpty {
+                Text(startAtLoginStatusText)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .contentMargins(.top, 0, for: .scrollContent)
-        .frame(minWidth: 520, minHeight: 520)
+        .luminareSectionLayout(.stacked)
+        .luminareBordered(true)
+        .onAppear {
+            startAtLoginState = StartAtLogin.state
+        }
+    }
+}
+
+struct OverlaySettingsSection: View {
+    @AppStorage(LoomDefaults.showAppIconsKey) private var showAppIcons = false
+    @AppStorage(LoomDefaults.dockPositionKey) private var dockPosition = DockPosition.bottomCenter.rawValue
+    @AppStorage(LoomDefaults.dockSizeKey) private var dockSize = DockSize.medium.rawValue
+    @AppStorage(LoomDefaults.activationDelayKey) private var activationDelay = LoomDefaults.defaultActivationDelay
+
+    private var dockPositionBinding: Binding<DockPosition> {
+        Binding(
+            get: { DockPosition(rawValue: dockPosition) ?? .bottomCenter },
+            set: { dockPosition = $0.rawValue }
+        )
+    }
+
+    private var dockSizeBinding: Binding<DockSize> {
+        Binding(
+            get: { DockSize(rawValue: dockSize) ?? .medium },
+            set: { dockSize = $0.rawValue }
+        )
+    }
+
+    private var activationDelayMsBinding: Binding<Double> {
+        Binding(
+            get: { activationDelay * 1000 },
+            set: { activationDelay = $0 / 1000 }
+        )
+    }
+
+    var body: some View {
+        LuminareSection {
+            LuminareCompose("Screen edge") {
+                LuminarePicker(
+                    elements: DockPosition.allCases,
+                    selection: dockPositionBinding,
+                    columns: DockPosition.allCases.count,
+                    innerPadding: 2
+                ) { position in
+                    Text(position.title)
+                        .font(.callout)
+                }
+                .luminareButtonHighlightOnHover(false)
+                .luminareCornerRadius(12)
+                .luminareButtonCornerRadius(8)
+                .luminarePickerRoundedCorner(.always)
+                .scaleEffect(0.92)
+                .frame(width: 160, alignment: .trailing)
+                .padding(.trailing, -2)
+                .luminareComposeIgnoreSafeArea(edges: .trailing)
+            }
+            .luminareComposeStyle(.inline)
+
+            LuminareCompose("Dock size") {
+                LuminarePicker(
+                    elements: DockSize.allCases,
+                    selection: dockSizeBinding,
+                    columns: DockSize.allCases.count,
+                    innerPadding: 2
+                ) { size in
+                    Text(size.title)
+                        .font(.callout)
+                }
+                .luminareButtonHighlightOnHover(false)
+                .luminareCornerRadius(12)
+                .luminareButtonCornerRadius(8)
+                .luminarePickerRoundedCorner(.always)
+                .scaleEffect(0.92)
+                .frame(width: 210, alignment: .trailing)
+                .padding(.trailing, -2)
+                .luminareComposeIgnoreSafeArea(edges: .trailing)
+            }
+            .luminareComposeStyle(.inline)
+
+            LuminareSlider(
+                "Activation delay",
+                value: activationDelayMsBinding,
+                in: 0...LoomDefaults.maximumActivationDelay * 1000,
+                step: 50,
+                format: .number.precision(.fractionLength(0)),
+                suffix: Text("ms")
+            )
+            .luminareSliderLayout(.compact(textBoxWidth: 70))
+
+            LuminareToggle("Show app icons", isOn: $showAppIcons)
+
+            LuminareCompose("Shortcut") {
+                ShortcutBadge(title: "Hold Control")
+            }
+            .luminareComposeStyle(.inline)
+        } header: {
+            Text("Overlay")
+        }
+        .luminareSectionLayout(.stacked)
+        .luminareBordered(true)
+    }
+}
+
+struct ExclusionsSettingsSection: View {
+    @State private var ignoredAppBundleIDs = IgnoredAppsStore.bundleIDArray
+    @State private var selectedBundleIdentifier: String?
+    @StateObject private var installedApps = InstalledAppsProvider()
+
+    private var ignoredApps: [IgnoredApp] {
+        ignoredAppBundleIDs
+            .map { IgnoredApp(bundleIdentifier: $0) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var availableApps: [IgnoredApp] {
+        let ignored = Set(ignoredAppBundleIDs)
+        return installedApps.apps
+            .filter { !ignored.contains($0.bundleIdentifier) }
+            .map { IgnoredApp(bundleIdentifier: $0.bundleIdentifier, name: $0.name) }
+    }
+
+    private var selectedAppName: String {
+        guard let selectedBundleIdentifier,
+              let app = availableApps.first(where: { $0.bundleIdentifier == selectedBundleIdentifier }) else {
+            return "Choose App"
+        }
+        return app.name
+    }
+
+    var body: some View {
+        LuminareSection(
+            hasPadding: true,
+            headerSpacing: 2,
+            footerSpacing: 2,
+            outerPadding: 12
+        ) {
+            LuminareCompose(alignment: .center) {
+                Menu {
+                    if availableApps.isEmpty {
+                        Text("No apps found")
+                    } else {
+                        ForEach(availableApps) { app in
+                            Button(app.name) {
+                                selectedBundleIdentifier = app.bundleIdentifier
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(selectedAppName)
+                            .foregroundStyle(selectedBundleIdentifier == nil ? .secondary : .primary)
+                        Image(systemName: "chevron.down")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .menuStyle(.button)
+                .buttonStyle(.luminareCompact)
+                .fixedSize(horizontal: true, vertical: false)
+
+                Button {
+                    addSelectedApp()
+                } label: {
+                    Label("Add", systemImage: "plus")
+                }
+                .buttonStyle(.luminareCompact)
+                .disabled(selectedBundleIdentifier == nil)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Exclude an app")
+                    Text("Hide apps from the Space overlay.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .luminareComposeStyle(.inline)
+            .padding(.vertical, 4)
+
+            if ignoredApps.isEmpty {
+                LuminareCompose(alignment: .center) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "app.badge")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 32, height: 32)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("No ignored apps")
+                            Text("Apps you add here will not appear as Space icons.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } label: {
+                    EmptyView()
+                }
+                .padding(.vertical, 4)
+            } else {
+                ForEach(ignoredApps) { app in
+                    LuminareCompose(alignment: .center) {
+                        HStack(spacing: 12) {
+                            Image(nsImage: app.icon)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 24, height: 24)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(app.name)
+                                    .lineLimit(1)
+                                Text(app.bundleIdentifier)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+
+                            Spacer()
+
+                            Button(role: .destructive) {
+                                remove(app)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.luminareCompact)
+                            .help("Remove \(app.name)")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } label: {
+                        EmptyView()
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        } header: {
+            Text("App Exclusions")
+        }
+        .luminareSectionLayout(.stacked)
+        .luminareBordered(true)
     }
 
     private func addSelectedApp() {
@@ -266,89 +350,6 @@ private struct IgnoredApp: Identifiable {
     }
 }
 
-private struct IgnoredAppRow: View {
-    let app: IgnoredApp
-    let onRemove: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(nsImage: app.icon)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 30, height: 30)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(app.name)
-                    .lineLimit(1)
-                Text(app.bundleIdentifier)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-
-            Spacer()
-
-            Button(role: .destructive, action: onRemove) {
-                Image(systemName: "trash")
-            }
-            .buttonStyle(.borderless)
-            .help("Remove \(app.name)")
-        }
-        .padding(.vertical, 3)
-    }
-}
-
-private struct SettingsRowLabel: View {
-    let title: String
-    let description: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-            Text(description)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-private struct SettingsEmptyState: View {
-    let systemImage: String
-    let title: String
-    let description: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .frame(width: 32, height: 32)
-
-            SettingsRowLabel(title: title, description: description)
-        }
-        .padding(.vertical, 8)
-    }
-}
-
-private struct SettingsInfoCallout: View {
-    let systemImage: String
-    let title: String
-    let description: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: systemImage)
-                .foregroundStyle(.orange)
-                .frame(width: 20)
-
-            SettingsRowLabel(title: title, description: description)
-        }
-        .padding(.vertical, 4)
-    }
-}
-
 private struct ShortcutBadge: View {
     let title: String
 
@@ -363,12 +364,5 @@ private struct ShortcutBadge: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(.separator.opacity(0.5))
             }
-    }
-}
-
-private extension Collection {
-    subscript(safe index: Index) -> Element? {
-        guard indices.contains(index) else { return nil }
-        return self[index]
     }
 }
